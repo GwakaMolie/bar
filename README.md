@@ -4,7 +4,7 @@ A stripped down version of the bar by [wezm](https://github.com/wezm) to generat
 system info (battery, CPU usage, Volume) for 
 [awesome](https://github.com/awesomeWM/awesome/) using [unixbar](https://github.com/myfreeweb/unixbar).
 
-<img src=" https://raw.githubusercontent.com/GwakaMolie/bar/master/screenshot.png " alt="Screen show of bar in action" width="351" />
+![Screenshot](screenshot.png)
 
 # Installation
 ```
