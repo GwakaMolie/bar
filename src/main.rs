@@ -1,23 +1,76 @@
+use std::env;
+
 use systemstat::{Platform, System};
 use unixbar::*;
 
-fn main() {
+#[derive(Default)]
+struct Config {
+    volume: bool,
+    battery: bool,
+    cpu_load: bool,
+    mpd: bool,
+}
 
-    let mut bar = UnixBar::new(AwesomeFormatter::new());
+impl Config {
+    fn from_args() -> Self {
+        let mut config = Config::default();
 
-    bar
-    // Volume
-    .add(Volume::new(default_volume(), |volume| {
-        if volume.muted {
-            bfmt![text["mute"]]
-        } else {
-            let volume = (volume.volume * 100.).round() as i32;
-            bfmt![fmt["V {}%", volume]]
+        for arg in env::args().skip(1) {
+            match arg.as_str() {
+                "-v" => config.volume = true,
+                "-b" => config.battery = true,
+                "-c" => config.cpu_load = true,
+                "-m" => config.mpd = true,
+                _ => (),
+            }
         }
-    }))
+        config
+    }
+}
+
+fn main() {
+    let mut bar = UnixBar::new(AwesomeFormatter::new());
+    let config = Config::from_args();
+
+    // MPD
+    if config.mpd {
+        bar.register_fn("prev", move || {
+            MPDMusic::new().prev();
+        })
+        .register_fn("play_pause", move || {
+            MPDMusic::new().play_pause();
+        })
+        .register_fn("next", move || {
+            MPDMusic::new().next();
+        })
+        .add(Music::new(MPDMusic::new(), |song| {
+            // bfmt![ fmt["{} ", song.title ]]
+            if let Some(playing) = song.playback.map(|playback| playback.playing) {
+                if playing {
+                    bfmt![fg["#bbbbbb"] fmt[" {} ", song.title]]
+                } else {
+                    bfmt![fg["#666666"] fmt[" {} ", song.title]]
+                }
+            } else {
+                bfmt![fg["#bbbbbb"] text["[start music]"]]
+            }
+        }));
+    }
+    if config.volume {
+        // Volume
+        bar.add(Volume::new(default_volume(), |volume| {
+            if volume.muted {
+                bfmt![text["mute"]]
+            } else {
+                let volume = (volume.volume * 100.).round() as i32;
+                bfmt![fmt["V {}%", volume]]
+            }
+        }));
+    }
 
     // Battery
-    .add(Periodic::new(Duration::from_secs(30), || {
+    if config.battery {
+        bar.add(Periodic::new(Duration::from_secs(30), || {
         let system = System::new();
         let symbol = system.on_ac_power().map(|on_ac_power| if on_ac_power { "" } else { "B" });
         match (symbol, system.battery_life()) {
@@ -28,23 +81,20 @@ fn main() {
             (Err(err), _) =>
                 bfmt![fg["#bb1155"] pad[1] text[err.to_string()]],
         }}
-    ))
-
-    // MPD
-    // .register_fn("prev", move || { MPDMusic::new().prev(); })
-    // .register_fn("play_pause", move || { MPDMusic::new().play_pause(); })
-    // .register_fn("next", move || { MPDMusic::new().next(); })
-    // .add(Music::new(MPDMusic::new(),
-    //     |song| bfmt![ fmt["{}", song.artist]]
-    // ))
+    ));
+    }
 
     // CPU Usage
-    .add(Delayed::new(Duration::from_secs(5),
-        || System::new().cpu_load_aggregate().unwrap(),
-        |res| match res {
-            Ok(cpu) => bfmt![fmt[" C {}% ", ((1.0 - cpu.idle) * 100.0) as i32]],
-            Err(_) => bfmt![fg["#bb1155"] text["error"]],
-    }));
+    if config.cpu_load {
+        bar.add(Delayed::new(
+            Duration::from_secs(5),
+            || System::new().cpu_load_aggregate().unwrap(),
+            |res| match res {
+                Ok(cpu) => bfmt![fmt[" C {}% ", ((1.0 - cpu.idle) * 100.0) as i32]],
+                Err(_) => bfmt![fg["#bb1155"] text["error"]],
+            },
+        ));
+    }
 
     bar.run_no_stdin();
 }

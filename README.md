@@ -14,4 +14,3 @@ cargo build --release
 ```
 ## Awesome Configuration
 See my [rc.lua](https://github.com/GwakaMolie/dotfiles/blob/d03d2c465be2498bb8c3bb3d1c14ee538e0313c5/awesome/.config/awesome/rc.lua#L104:L115) for how it's used from awesome.
-
